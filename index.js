@@ -17,7 +17,7 @@ env.config();
 app.use(
   cors({
     credentials: true,
-    origin: "https://hamza0631blog.netlify.app",
+    origin: "https://hamza-blog-two.vercel.app",
     methods: ["GET", "POST", "PUT", "DELETE"],
   })
 );

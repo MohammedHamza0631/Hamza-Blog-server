@@ -17,7 +17,7 @@ env.config();
 app.use(
   cors({
     credentials: true,
-    origin: "http://localhost:3000",
+    origin: "https://hamza-blog-teal.vercel.app",
     methods: ["GET", "POST", "PUT", "DELETE"],
   })
 );

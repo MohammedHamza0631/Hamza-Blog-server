@@ -67,7 +67,10 @@ app.post("/login", async (req, res) => {
       if (err) throw err;
       res
         .cookie("token", token, {
-          expires: new Date(Date.now() + 24 * 3600000), // cookie will be removed after 8 hours
+          expires: new Date(Date.now() + 24 * 3600000),
+          httpOnly: true,
+          sameSite: "none",
+          secure: true,
         })
         .json({
           id: userDoc._id,

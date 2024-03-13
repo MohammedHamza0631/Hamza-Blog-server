@@ -24,11 +24,14 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 app.use("/uploads", express.static(__dirname + "/uploads"));
-mongoose.connect(process.env.MONGO_URL);
+mongoose.connect(process.env.MONGO_URL, () => {
+  console.log("Connected to MongoDB");
+});
 const saltRounds = 10;
 const salt = bcrypt.genSaltSync(saltRounds);
 const secret = process.env.SECRET;
 const PORT = process.env.PORT || 4000;
+
 app.post("/register", async (req, res) => {
   const { username, password } = req.body;
   try {

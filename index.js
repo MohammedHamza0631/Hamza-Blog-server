@@ -17,16 +17,23 @@ env.config();
 app.use(
   cors({
     credentials: true,
-    origin: "https://hamza-blog-two.vercel.app",
+    origin: "http://localhost:3000",
     methods: ["GET", "POST", "PUT", "DELETE"],
   })
 );
 app.use(express.json());
 app.use(cookieParser());
 app.use("/uploads", express.static(__dirname + "/uploads"));
-mongoose.connect(process.env.MONGO_URL, () => {
-  console.log("Connected to MongoDB");
-});
+// mongoose.connect(process.env.MONGO_URL);
+mongoose
+  .connect(process.env.MONGO_URL)
+  .then(() => {
+    console.log("Connected to MongoDB");
+  })
+  .catch((error) => {
+    console.error("Error connecting to MongoDB:", error);
+  });
+
 const saltRounds = 10;
 const salt = bcrypt.genSaltSync(saltRounds);
 const secret = process.env.SECRET;
@@ -41,8 +48,12 @@ app.post("/register", async (req, res) => {
     });
     res.json(userDoc);
   } catch (e) {
-    console.log(e);
-    res.status(400).json(e);
+    if (e.code === 11000 && e.keyPattern && e.keyValue) {
+      res.status(400).json({ error: "Username already exists." });
+    } else {
+      console.error(e);
+      res.status(400).json({ error: "Failed to register user." });
+    }
   }
 });
 

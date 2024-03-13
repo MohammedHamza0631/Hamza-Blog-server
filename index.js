@@ -37,7 +37,23 @@ mongoose
 const saltRounds = 10;
 const salt = bcrypt.genSaltSync(saltRounds);
 const secret = process.env.SECRET;
+const accessTokenExpiration = "24h";
+const refreshTokenExpiration = "7d";
 const PORT = process.env.PORT || 4000;
+
+const generateTokens = (user) => {
+  const accessToken = jwt.sign(
+    { username: user.username, id: user._id },
+    secret,
+    { expiresIn: accessTokenExpiration }
+  );
+  const refreshToken = jwt.sign(
+    { username: user.username, id: user._id },
+    secret,
+    { expiresIn: refreshTokenExpiration }
+  );
+  return { accessToken, refreshToken };
+};
 
 app.post("/register", async (req, res) => {
   const { username, password } = req.body;
@@ -59,43 +75,89 @@ app.post("/register", async (req, res) => {
 
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
-  const userDoc = await User.findOne({ username });
-  const passOk = bcrypt.compareSync(password, userDoc.password);
-  if (passOk) {
-    // logged in
-    jwt.sign({ username, id: userDoc._id }, secret, {}, (err, token) => {
-      if (err) throw err;
-      res
-        .cookie("token", token, {
-          expires: new Date(Date.now() + 24 * 3600000),
-          httpOnly: true,
-          sameSite: "none",
-          secure: true,
-        })
-        .json({
-          id: userDoc._id,
-          username,
-        });
+  try {
+    const userDoc = await User.findOne({ username });
+    if (!userDoc) {
+      return res.status(404).json({ error: "User not found." });
+    }
+    const passOk = bcrypt.compareSync(password, userDoc.password);
+    if (!passOk) {
+      return res.status(400).json({ error: "Invalid credentials." });
+    }
+    const tokens = generateTokens(userDoc);
+    res.cookie("accessToken", tokens.accessToken, {
+      httpOnly: true,
+      expires: new Date(Date.now() + 24 * 3600000), // 24 hours
     });
-    console.log("Login Success");
-  } else {
-    res.status(400).json("Wrong Credentials");
+    res.cookie("refreshToken", tokens.refreshToken, {
+      httpOnly: true,
+      expires: new Date(Date.now() + 7 * 24 * 3600000), // 7 days
+    });
+    res.json({ id: userDoc._id, username });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Internal server error." });
   }
 });
 
+// app.post("/login", async (req, res) => {
+//   const { username, password } = req.body;
+//   const userDoc = await User.findOne({ username });
+//   const passOk = bcrypt.compareSync(password, userDoc.password);
+//   if (passOk) {
+//     // logged in
+//     jwt.sign({ username, id: userDoc._id }, secret, {}, (err, token) => {
+//       if (err) throw err;
+//       res
+//         .cookie("token", token, {
+//           expires: new Date(Date.now() + 24 * 3600000),
+//           httpOnly: true,
+//           sameSite: "none",
+//           secure: true,
+//         })
+//         .json({
+//           id: userDoc._id,
+//           username,
+//         });
+//     });
+//     console.log("Login Success");
+//   } else {
+//     res.status(400).json("Wrong Credentials");
+//   }
+// });
+
 app.get("/profile", (req, res) => {
-  const { token } = req.cookies;
-  if (!token) return null;
-  jwt.verify(token, secret, {}, (err, info) => {
-    if (err) throw err;
-    res.json(info);
+  const accessToken = req.cookies.accessToken;
+  if (!accessToken) {
+    return res.status(401).json({ error: "Access token not provided." });
+  }
+  jwt.verify(accessToken, secret, (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ error: "Invalid access token." });
+    }
+    res.json(decoded);
   });
 });
 
+// app.get("/profile", (req, res) => {
+//   const { token } = req.cookies;
+//   if (!token) return null;
+//   jwt.verify(token, secret, {}, (err, info) => {
+//     if (err) throw err;
+//     res.json(info);
+//   });
+// });
+
 app.post("/logout", (req, res) => {
-  res.clearCookie("token").json("Logged out");
-  console.log("Logged out");
+  res.clearCookie("accessToken");
+  res.clearCookie("refreshToken");
+  res.json({ message: "Logged out successfully." });
 });
+
+// app.post("/logout", (req, res) => {
+//   res.clearCookie("token").json("Logged out");
+//   console.log("Logged out");
+// });
 
 app.post("/post", upload.single("file"), async (req, res) => {
   const { originalname, path } = req.file;

@@ -63,17 +63,22 @@ app.post("/login", async (req, res) => {
   const passOk = bcrypt.compareSync(password, userDoc.password);
   if (passOk) {
     // logged in
-    jwt.sign({ username, id: userDoc._id }, secret, {}, (err, token) => {
-      if (err) throw err;
-      res
-        .cookie("token", token, {
-          maxAge: 1000 * 60 * 60 * 24 * 7,
-        })
-        .json({
-          id: userDoc._id,
-          username,
-        });
-    });
+    jwt.sign(
+      { username, id: userDoc._id },
+      secret,
+      { expiresIn: "1h" },
+      (err, token) => {
+        if (err) throw err;
+        res
+          .cookie("token", token, {
+            maxAge: 3600000,
+          })
+          .json({
+            id: userDoc._id,
+            username,
+          });
+      }
+    );
     console.log("Login Success");
   } else {
     res.status(400).json("Wrong Credentials");

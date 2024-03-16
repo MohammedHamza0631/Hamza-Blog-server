@@ -19,6 +19,8 @@ app.use(
     credentials: true,
     origin: "https://hamza-blog-teal.vercel.app",
     methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    
   })
 );
 app.use(express.json());
@@ -71,6 +73,9 @@ app.post("/login", async (req, res) => {
         if (err) throw err;
         res
           .cookie("token", token, {
+            httpOnly: true,
+            sameSite: "strict",
+            secure: true,
             maxAge: 3600000,
           })
           .json({

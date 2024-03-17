@@ -16,11 +16,11 @@ env.config();
 
 app.use(
   cors({
-    credentials: true,
-    origin: "https://hamza-blog-teal.vercel.app",
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-    
+    "Access-Control-Allow-Origin": "https://hamza-blog-teal.vercel.app",
+    "Access-Control-Allow-Credentials": true,
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE",
+    "Access-Control-Allow-Headers": "Content-Type, Set-Cookie, Authorization",
+
   })
 );
 app.use(express.json());

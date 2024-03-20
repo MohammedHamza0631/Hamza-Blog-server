@@ -61,37 +61,37 @@ app.post("/register", async (req, res) => {
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
   const userDoc = await User.findOne({ username });
+  if (!userDoc) {
+    res.status(400).json({ error: "User not found! Please register." });
+    return;
+  }
   const passOk = bcrypt.compareSync(password, userDoc.password);
+  if (!passOk) {
+    res.status(400).json({ error: "Incorrect Password!" });
+    return;
+  }
   if (passOk) {
-    // logged in
     jwt.sign(
-      { username, id: userDoc._id },
+      { username, id: userDoc._id }, // Payload
       secret,
-      { expiresIn: "1h" },
+      { expiresIn: "1d" }, // Options object
       (err, token) => {
         if (err) throw err;
-        res
-          .cookie("token", token, {
-            httpOnly: true,
-            sameSite: "strict",
-            secure: true,
-            maxAge: 3600000,
-          })
-          .json({
-            id: userDoc._id,
-            username,
-          });
+        res.json({ id: userDoc._id, username, token }); // Send the token back
       }
     );
-    console.log("Login Success");
+    console.log("Logged in");
   } else {
     res.status(400).json("Wrong Credentials");
   }
 });
 
 app.get("/profile", (req, res) => {
-  const { token } = req.cookies;
-  if (!token) return null;
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(" ")[1]; // Bearer token
+
+  if (!token) return res.status(401).json("No authorization token provided");
+
   jwt.verify(token, secret, {}, (err, info) => {
     if (err) throw err;
     res.json(info);
@@ -99,24 +99,25 @@ app.get("/profile", (req, res) => {
 });
 
 app.post("/logout", (req, res) => {
-  res.clearCookie("token").json("Logged out");
+  res.json("Logged out");
   console.log("Logged out");
 });
 
 app.post("/post", upload.single("file"), async (req, res) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(" ")[1];
+  if (!token) return res.status(401).json("No authorization token provided");
+
   const { originalname, path } = req.file;
   const parts = originalname.split(".");
   const ext = parts[parts.length - 1];
   const newPath = path + "." + ext;
   fs.renameSync(path, newPath);
 
-  const { token } = req.cookies;
-  if (!token) {
-    // res.status(404);
-    return null;
-  }
   jwt.verify(token, secret, {}, async (err, info) => {
-    if (err) throw err;
+    if (err) {
+      return res.status(403).json("Invalid authorization token");
+    }
     const { title, summary, content } = req.body;
     const postDoc = await Post.create({
       title,
@@ -130,6 +131,10 @@ app.post("/post", upload.single("file"), async (req, res) => {
 });
 
 app.put("/post", upload.single("file"), async (req, res) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) return res.status(401).json("No authorization token provided");
   let newPath = null;
   if (req.file) {
     const { originalname, path } = req.file;
@@ -139,12 +144,10 @@ app.put("/post", upload.single("file"), async (req, res) => {
     fs.renameSync(path, newPath);
   }
 
-  const { token } = req.cookies;
-  if (!token) {
-    res.status(404).json("You are not logged in");
-  }
   jwt.verify(token, secret, {}, async (err, info) => {
-    if (err) throw err;
+    if (err) {
+      return res.status(403).json("Invalid authorization token");
+    }
     const { id, title, summary, content } = req.body;
 
     const postDoc = await Post.findById(id);
@@ -181,12 +184,17 @@ app.get("/post/:id", async (req, res) => {
 
 app.delete("/post/:id", async (req, res) => {
   const { id } = req.params;
-  const { token } = req.cookies;
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) return res.status(401).json("No authorization token provided");
   if (!token) {
     return res.status(404).json("You are not logged in");
   }
   jwt.verify(token, secret, {}, async (err, info) => {
-    if (err) throw err;
+    if (err) {
+      return res.status(403).json("Invalid authorization token");
+    }
     const postDoc = await Post.findById(id);
     const isAuthor = JSON.stringify(postDoc.author) === JSON.stringify(info.id);
     if (!isAuthor) {

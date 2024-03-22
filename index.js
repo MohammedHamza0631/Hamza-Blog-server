@@ -47,7 +47,16 @@ app.post("/register", async (req, res) => {
       username,
       password: bcrypt.hashSync(password, salt),
     });
-    res.json(userDoc);
+    // Generate JWT upon successful registration
+    jwt.sign(
+      { username, id: userDoc._id },
+      secret,
+      { expiresIn: "1d" },
+      (err, token) => {
+        if (err) throw err;
+        res.json({ id: userDoc._id, username, token }); // Send token back
+      }
+    );
   } catch (e) {
     if (e.code === 11000 && e.keyPattern && e.keyValue) {
       res.status(400).json({ error: "Username already exists." });
